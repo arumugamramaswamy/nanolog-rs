@@ -1,0 +1,9 @@
+[package]
+name = "nanolog-rs-common"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+proc-macro2 = "1.0.94"
+regex = "1.11.1"
+syn = {version = "2.0.100", features=["parsing", "full"]}
