@@ -4,15 +4,22 @@ struct Shareable<T: 'static>(&'static UnsafeCell<T>);
 
 impl<T> Clone for Shareable<T> {
     fn clone(&self) -> Self {
-        Shareable(self.0)
+        Self(self.0)
     }
 }
 
 impl<T> Copy for Shareable<T> {}
 
-#[derive(Clone, Copy)]
 pub struct ShareableWriter<T: 'static> {
     shareable: Shareable<T>,
+}
+
+impl<T> Clone for ShareableWriter<T> {
+    fn clone(&self) -> Self {
+        Self {
+            shareable: self.shareable.clone(),
+        }
+    }
 }
 
 impl<T> ShareableWriter<T> {

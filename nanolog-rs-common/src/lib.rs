@@ -12,7 +12,7 @@ pub struct Nanolog {
 }
 
 impl Nanolog {
-    pub fn get_fmt_string(&self) -> String {
+    pub fn get_log_type_suffix(&self) -> String {
         self.fmt_specifiers
             .iter()
             .map(|s| s.to_type_string())

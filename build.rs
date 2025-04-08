@@ -31,15 +31,15 @@ fn main() {
     }
 
     let tokens = quote! {
-        pub trait NanologLoggable<Sink: std::io::Write>{
-            fn log(self, s: &mut Sink);
+        pub trait NanologLoggable<const F: u64, const L: u32>{
+            fn log(self, logger: &mut ::nanolog_rs_common::nanolog_logger::Logger);
         }
     };
     writeln!(file, "{}", tokens).unwrap();
 
     let mut log_type_extensions = HashSet::new();
     for i in v.iter() {
-        log_type_extensions.insert(i.nanolog.get_fmt_string());
+        log_type_extensions.insert(i.nanolog.get_log_type_suffix());
     }
 
     for ext in log_type_extensions {
@@ -58,10 +58,10 @@ fn main() {
         let tokens = quote! {
             #[derive(Debug)]
             #[repr(C)]
-            pub struct #i<const F: u64, const L: u32>{
+            pub struct #i{
                 #fields
             }
-            impl<const F: u64, const L: u32> #i<F, L>{
+            impl #i{
                 pub fn new(#fields) -> Self{
                     #i{#names}
                 }
@@ -69,6 +69,7 @@ fn main() {
         };
         writeln!(file, "{}", tokens).unwrap();
     }
+    let mut log_id_map = TokenStream::new();
 
     for (log_id, invocation) in v.iter().enumerate() {
         let filename = invocation.file_name.as_str();
@@ -76,24 +77,67 @@ fn main() {
         let linenum = invocation.line_num as u32;
         let fmt_literal = invocation.nanolog.fmt_literal.as_str();
 
-        let i = quote::format_ident!("Log{}", invocation.nanolog.get_fmt_string());
+        let i = quote::format_ident!("Log{}", invocation.nanolog.get_log_type_suffix());
         let tokens = quote! {
-            impl<Sink: std::io::Write> NanologLoggable<Sink> for #i<#filehash,#linenum>{
-                fn log(self, s: &mut Sink){
+            impl NanologLoggable<#filehash,#linenum> for #i{
+                fn log(self, logger: &mut ::nanolog_rs_common::nanolog_logger::Logger){
                     const LOG_ID: usize = #log_id;
                     let struct_bytes = unsafe{
                         let ptr: *const Self = &self;
                         let byte_ptr: *const u8 = ptr.cast();
                         std::slice::from_raw_parts(byte_ptr, std::mem::size_of::<Self>())
                     };
-                    s.write(&LOG_ID.to_ne_bytes()).unwrap();
-                    s.write(struct_bytes).unwrap();
-                    // println!("[{}@{}|ID:{}]{}\n{:?}", #filename, #linenum, LOG_ID, #fmt_literal, struct_bytes);
+                    logger.write(&LOG_ID.to_ne_bytes());
+                    logger.write(struct_bytes);
                 }
             }
         };
+
+        log_id_map.extend(quote! {#fmt_literal, });
+
         writeln!(file, "{}", tokens).unwrap();
     }
+    let n = v.len();
+    writeln!(
+        file,
+        "const LOG_LITERALS: [&'static str; {n}] = [{}];",
+        log_id_map
+    )
+    .unwrap();
+
+    let mut log_id_cases = TokenStream::new();
+
+    // TODO: impl the actual logic later
+    for (log_id, invocation) in v.iter().enumerate() {
+        let i = quote::format_ident!("Log{}", invocation.nanolog.get_log_type_suffix());
+        log_id_cases.extend(quote! {
+            #log_id => {
+                const LOG_SIZE: usize = std::mem::size_of::<crate::nanolog_internal::#i>();
+
+                let log_type = unsafe{&*(buf[consumed..consumed + LOG_SIZE].as_ptr() as *const crate::nanolog_internal::#i)};
+                println!("Fmt literal: {}, log_type: {:?}", LOG_LITERALS[log_id], log_type);
+
+                consumed += LOG_SIZE;
+            }
+        });
+    }
+
+    let decode_buf = quote! {
+        pub fn decode_buf(buf: &[u8]) {
+            let mut consumed = 0;
+            while !buf[consumed..].is_empty() {
+                let mut bytes = [0u8; 8];
+                bytes.copy_from_slice(&buf[consumed..consumed + 8]);
+                consumed += 8;
+                let log_id = usize::from_le_bytes(bytes);
+                match log_id {
+                    #log_id_cases
+                    _ => panic!("unknown log id"),
+                }
+            }
+        }
+    };
+    writeln!(file, "{}", decode_buf).unwrap();
 
     // Tell Cargo to rerun this script if any file in src changes
     println!("cargo:rerun-if-changed=src/");

@@ -1,6 +1,7 @@
 mod ring_buf;
 mod shareable;
 
+#[derive(Clone)]
 pub struct Logger(shareable::ShareableWriter<ring_buf::RingBuf<4096>>);
 
 impl Logger {

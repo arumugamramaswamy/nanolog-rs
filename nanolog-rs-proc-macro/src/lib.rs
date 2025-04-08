@@ -6,7 +6,7 @@ use syn::parse_macro_input;
 #[proc_macro]
 pub fn nanolog(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as nanolog_rs_common::Nanolog);
-    let i = quote::format_ident!("Log{}", input.get_fmt_string());
+    let i = quote::format_ident!("Log{}", input.get_log_type_suffix());
     let mut args = proc_macro2::TokenStream::new();
     for expr in input.punctuate {
         args.extend(quote! {#expr,});
@@ -15,11 +15,10 @@ pub fn nanolog(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let tokens = quote! {
         {
             use crate::nanolog_internal::NanologLoggable;
-            use nanolog_rs_common;
             const L: u32 = line!();
             const F: u64 = ::nanolog_rs_common::const_fnv1a_hash(file!());
-            let log = crate::nanolog_internal::#i::<F, L>::new(#args);
-            log.log(#sink);
+            let log = crate::nanolog_internal::#i::new(#args);
+            <crate::nanolog_internal::#i as crate::nanolog_internal::NanologLoggable::<F, L>>::log(log, #sink);
         }
     };
     tokens.into()
