@@ -1,4 +1,4 @@
-use std::ptr::null;
+pub mod nanolog_logger;
 
 use regex::Regex;
 use syn::{parse::Parse, token::Comma, Expr};
