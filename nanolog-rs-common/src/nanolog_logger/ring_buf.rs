@@ -40,6 +40,7 @@ impl<const N: usize> RingBuf<N> {
 
         let n = tail - *head;
         if n == 0 {
+            self.reader_head.swap(&head_cell);
             return 0;
         }
 
@@ -88,6 +89,9 @@ impl<const N: usize> RingBuf<N> {
         }
 
         self.writer_tail += buf.len();
+    }
+
+    pub fn commit_write(&mut self) {
         self.tail.store(self.writer_tail, atomic::Ordering::Release);
     }
 }

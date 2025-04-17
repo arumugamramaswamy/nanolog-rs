@@ -1,6 +1,7 @@
 pub mod nanolog_logger;
 
 use regex::Regex;
+use std::time::{SystemTime, UNIX_EPOCH};
 use syn::{parse::Parse, token::Comma, Expr};
 
 // #[derive(Debug)]
@@ -151,4 +152,11 @@ mod tests {
                 .is_ok()
         );
     }
+}
+
+pub fn system_time_to_micros(time: SystemTime) -> u64 {
+    let duration = time
+        .duration_since(UNIX_EPOCH)
+        .expect("Time before UNIX_EPOCH");
+    duration.as_secs() * 1_000_000 + u64::from(duration.subsec_micros())
 }
