@@ -1,7 +1,7 @@
 mod ring_buf;
 mod shareable;
 
-pub const RINGBUF_SIZE: usize = 128 * 1024;
+pub const RINGBUF_SIZE: usize = 512 * 1024;
 #[derive(Clone)]
 pub struct Logger(shareable::ShareableWriter<ring_buf::RingBuf<RINGBUF_SIZE>>);
 

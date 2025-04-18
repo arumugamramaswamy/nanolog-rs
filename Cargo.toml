@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+affinity = "0.1.2"
 nanolog-rs-common = {path = "nanolog-rs-common"}
 nanolog-rs-proc-macro = {path = "nanolog-rs-proc-macro"}
 

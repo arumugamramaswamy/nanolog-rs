@@ -75,7 +75,14 @@ impl<const N: usize> RingBuf<N> {
         let remaining = N - n;
 
         if buf.len() > remaining {
-            panic!("too much to write");
+            panic!(
+                "too much to write {} - {} = {}. remaining = {}. buf_len = {}",
+                self.writer_tail,
+                head,
+                n,
+                remaining,
+                buf.len()
+            );
         }
 
         let wrapped_tail = self.writer_tail % N;

@@ -82,13 +82,9 @@ fn main() {
             impl NanologLoggable<#filehash,#linenum> for #i{
                 fn log(self, logger: &mut ::nanolog_rs_common::nanolog_logger::Logger){
                     const LOG_ID: usize = #log_id;
-                    // let timestamp_bytes = unsafe{
-                    //     let now = ::std::time::Instant::now();
-                    //     let ptr: *const ::std::time::Instant = &now;
-                    //     let byte_ptr: *const u8 = ptr.cast();
-                    //     std::slice::from_raw_parts(byte_ptr, std::mem::size_of::<::std::time::Instant>())
-                    // };
-                    // logger.write(timestamp_bytes);
+
+                    let timestamp = ::nanolog_rs_common::system_time_to_micros(::std::time::SystemTime::now());
+                    logger.write(&timestamp.to_ne_bytes());
 
                     logger.write(&LOG_ID.to_ne_bytes());
 
@@ -128,8 +124,8 @@ fn main() {
                 const LOG_SIZE: usize = std::mem::size_of::<crate::nanolog_internal::#i>();
 
                 let log_type = unsafe{&*(buf[consumed..consumed + LOG_SIZE].as_ptr() as *const crate::nanolog_internal::#i)};
-                // println!("Fmt literal: {}, since: {:?}, log_type: {:?}", LOG_LITERALS[log_id], instant, log_type);
-                println!("Fmt literal: {}, log_type: {:?}", LOG_LITERALS[log_id], log_type);
+                println!("[{}] Fmt literal: {}, log_type: {:?}", timestamp, LOG_LITERALS[log_id], log_type);
+                break;
 
                 consumed += LOG_SIZE;
             }
@@ -142,11 +138,10 @@ fn main() {
             while !buf[consumed..].is_empty() {
                 let mut bytes = [0u8; 8];
 
-                // const INSTANT_SIZE: usize = std::mem::size_of::<::std::time::Instant>();
-                // let instant_bytes = &buf[consumed..(consumed + INSTANT_SIZE)];
-                // let instant = unsafe{&*(buf[consumed..(consumed + INSTANT_SIZE)].as_ptr() as *const ::std::time::Instant)};
-                // let since = instant.duration_since(start_instant.clone());
-                // consumed += INSTANT_SIZE;
+                bytes.copy_from_slice(&buf[consumed..consumed + 8]);
+                consumed += 8;
+                let timestamp = usize::from_le_bytes(bytes);
+
 
                 bytes.copy_from_slice(&buf[consumed..consumed + 8]);
                 consumed += 8;
