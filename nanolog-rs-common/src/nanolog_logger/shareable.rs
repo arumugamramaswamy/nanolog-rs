@@ -54,3 +54,12 @@ pub fn new_shareable_reader_and_writer<T>(obj: T) -> (ShareableReader<T>, Sharea
     let sr = ShareableReader { shareable: s };
     (sr, sw)
 }
+
+pub fn new_shareable_reader_and_writer_from_boxed_unsafe<T>(
+    obj: Box<UnsafeCell<T>>,
+) -> (ShareableReader<T>, ShareableWriter<T>) {
+    let s = Shareable(Box::<_>::leak(obj));
+    let sw = ShareableWriter { shareable: s };
+    let sr = ShareableReader { shareable: s };
+    (sr, sw)
+}

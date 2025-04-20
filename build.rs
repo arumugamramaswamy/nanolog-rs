@@ -32,7 +32,7 @@ fn main() {
 
     let tokens = quote! {
         pub trait NanologLoggable<const F: u64, const L: u32>{
-            fn log(self, logger: &mut ::nanolog_rs_common::nanolog_logger::Logger);
+            fn log<W: ::nanolog_rs_common::nanolog_logger::WaitStrategy>(self, logger: &mut ::nanolog_rs_common::nanolog_logger::Logger<W>);
         }
     };
     writeln!(file, "{}", tokens).unwrap();
@@ -80,7 +80,7 @@ fn main() {
         let i = quote::format_ident!("Log{}", invocation.nanolog.get_log_type_suffix());
         let tokens = quote! {
             impl NanologLoggable<#filehash,#linenum> for #i{
-                fn log(self, logger: &mut ::nanolog_rs_common::nanolog_logger::Logger){
+                fn log<W: ::nanolog_rs_common::nanolog_logger::WaitStrategy>(self, logger: &mut ::nanolog_rs_common::nanolog_logger::Logger<W>){
                     const LOG_ID: usize = #log_id;
 
                     let timestamp = ::nanolog_rs_common::system_time_to_micros(::std::time::SystemTime::now());
@@ -125,8 +125,6 @@ fn main() {
 
                 let log_type = unsafe{&*(buf[consumed..consumed + LOG_SIZE].as_ptr() as *const crate::nanolog_internal::#i)};
                 println!("[{}] Fmt literal: {}, log_type: {:?}", timestamp, LOG_LITERALS[log_id], log_type);
-                break;
-
                 consumed += LOG_SIZE;
             }
         });

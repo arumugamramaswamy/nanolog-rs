@@ -46,8 +46,6 @@ fn main() {
             let b = 1;
 
             // TODO:
-            // WaitStrategy
-            // larger buffer sizes -> directly allocate on the heap
             // Further improvements:
             //   - coalesce writes to stdout / disk
             //   - api ergonomics (maybe wrapper around thread_spawn that sets up the logger)
@@ -83,7 +81,8 @@ fn main() {
     }
 }
 
-fn setup_logger() -> ::nanolog_rs_common::nanolog_logger::Logger {
+fn setup_logger(
+) -> ::nanolog_rs_common::nanolog_logger::Logger<::nanolog_rs_common::nanolog_logger::Spin> {
     let (logger, log_reader) = ::nanolog_rs_common::nanolog_logger::create_log_pair();
     let sender = crate::LOGGER_SENDER.lock().unwrap();
     sender
