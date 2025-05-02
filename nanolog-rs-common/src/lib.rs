@@ -1,7 +1,9 @@
 pub mod nanolog_logger;
 
+use core::arch::x86_64::_rdtsc;
+use libc::{clock_gettime, timespec, CLOCK_MONOTONIC};
 use regex::Regex;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use syn::{parse::Parse, token::Comma, Expr};
 
 // #[derive(Debug)]
@@ -106,6 +108,32 @@ pub const fn const_fnv1a_hash(filename: &str) -> u64 {
     hash
 }
 
+pub fn system_time_to_micros(time: SystemTime) -> u64 {
+    let duration = time
+        .duration_since(UNIX_EPOCH)
+        .expect("Time before UNIX_EPOCH");
+    duration.as_secs() * 1_000_000 + u64::from(duration.subsec_micros())
+}
+
+pub fn get_monotonic_time_micros() -> u64 {
+    let mut ts = timespec {
+        tv_sec: 0,
+        tv_nsec: 0,
+    };
+
+    // Call clock_gettime with CLOCK_MONOTONIC
+    if unsafe { clock_gettime(CLOCK_MONOTONIC, &mut ts) } != 0 {
+        panic!("Failed to get monotonic time");
+    }
+
+    // Convert to microseconds
+    (ts.tv_sec as u64) * 1_000_000 + (ts.tv_nsec as u64) / 1_000
+}
+
+pub fn get_rdtsc_time() -> u64 {
+    unsafe { _rdtsc() }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -152,11 +180,4 @@ mod tests {
                 .is_ok()
         );
     }
-}
-
-pub fn system_time_to_micros(time: SystemTime) -> u64 {
-    let duration = time
-        .duration_since(UNIX_EPOCH)
-        .expect("Time before UNIX_EPOCH");
-    duration.as_secs() * 1_000_000 + u64::from(duration.subsec_micros())
 }

@@ -134,13 +134,13 @@ pub struct Spin;
 impl WaitStrategy for Spin {
     fn wait_to_write<const N: usize>(rb: &mut RingBuf<N>, buf: &[u8]) {
         loop {
-            let head = rb.head.load(atomic::Ordering::Acquire);
-            let n = rb.writer_tail - head;
+            let n = rb.writer_tail - rb.writer_head;
             let remaining = N - n;
 
             if buf.len() <= remaining {
                 break;
             }
+            rb.writer_head = rb.head.load(atomic::Ordering::Acquire);
         }
     }
 }

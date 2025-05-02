@@ -13,3 +13,10 @@ syn = {version = "2.0.100", features = ["extra-traits", "full", "visit"]}
 proc-macro2 = {version = "1.0.94", features=["span-locations"]}
 nanolog-rs-common = {path = "nanolog-rs-common"}
 quote = {version = "1.0.40"}
+
+[profile.release]
+debug = true
+
+[target.x86_64-unknown-linux-gnu]
+linker = "/usr/bin/clang"
+rustflags = ["-Clink-arg=-fuse-ld=lld", "-Clink-arg=-Wl,--no-rosegment"]

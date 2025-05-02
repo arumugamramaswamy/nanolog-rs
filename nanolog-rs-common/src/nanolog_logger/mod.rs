@@ -5,7 +5,7 @@ pub use ring_buf::Panic;
 pub use ring_buf::Spin;
 pub use ring_buf::WaitStrategy;
 
-pub const RINGBUF_SIZE: usize = 1024 * 1024;
+pub const RINGBUF_SIZE: usize = 512 * 1024;
 #[derive(Clone)]
 pub struct Logger<W: 'static>(
     shareable::ShareableWriter<ring_buf::RingBuf<RINGBUF_SIZE>>,

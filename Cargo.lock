@@ -73,6 +73,7 @@ dependencies = [
 name = "nanolog-rs-common"
 version = "0.1.0"
 dependencies = [
+ "libc",
  "proc-macro2",
  "regex",
  "syn",

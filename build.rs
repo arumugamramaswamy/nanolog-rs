@@ -83,7 +83,9 @@ fn main() {
                 fn log<W: ::nanolog_rs_common::nanolog_logger::WaitStrategy>(self, logger: &mut ::nanolog_rs_common::nanolog_logger::Logger<W>){
                     const LOG_ID: usize = #log_id;
 
-                    let timestamp = ::nanolog_rs_common::system_time_to_micros(::std::time::SystemTime::now());
+                    let timestamp = ::nanolog_rs_common::get_rdtsc_time();
+                    // let timestamp = ::nanolog_rs_common::get_monotonic_time_micros();
+                    // let timestamp = ::nanolog_rs_common::system_time_to_micros(::std::time::SystemTime::now());
                     logger.write(&timestamp.to_ne_bytes());
 
                     logger.write(&LOG_ID.to_ne_bytes());
