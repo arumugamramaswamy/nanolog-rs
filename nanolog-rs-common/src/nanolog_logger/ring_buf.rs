@@ -6,20 +6,57 @@ impl<const N: usize> IsPowerOf2<N> {
     const OK: () = assert!(N & (N - 1) == 0);
 }
 
-pub trait WaitStrategy {
-    fn wait_to_write<const N: usize>(rb: &mut RingBuf<N>, buf: &[u8]) {}
+pub struct Panic;
+pub struct Spin;
+
+pub trait WithWaitStrategy {
+    fn wait_to_write(&mut self, buf: &[u8]);
 }
 
-pub struct RingBuf<const N: usize> {
+impl<const N: usize> WithWaitStrategy for RingBuf<N, Panic> {
+    fn wait_to_write(&mut self, buf: &[u8]) {
+        let head = self.head.load(atomic::Ordering::Acquire);
+        let n = self.writer_tail - head;
+        let remaining = N - n;
+
+        if buf.len() > remaining {
+            panic!(
+                "too much to write {} - {} = {}. remaining = {}. buf_len = {}",
+                self.writer_tail,
+                head,
+                n,
+                remaining,
+                buf.len()
+            );
+        }
+    }
+}
+
+impl<const N: usize> WithWaitStrategy for RingBuf<N, Spin> {
+    fn wait_to_write(&mut self, buf: &[u8]) {
+        loop {
+            let n = self.writer_tail - self.writer_head;
+            let remaining = N - n;
+
+            if buf.len() <= remaining {
+                break;
+            }
+            self.writer_head = self.head.load(atomic::Ordering::Acquire);
+        }
+    }
+}
+
+pub struct RingBuf<const N: usize, WaitStrategy> {
     buf: [u8; N],
     head: atomic::AtomicUsize, // where the reader is reading from
     tail: atomic::AtomicUsize, // where the writer is writing to
     writer_head: usize,        // best conservative guess
     writer_tail: usize,        // known
     reader_head: Cell<usize>,  // known
+    wait_strategy: std::marker::PhantomData<WaitStrategy>,
 }
 
-impl<const N: usize> RingBuf<N> {
+impl<const N: usize, WaitStrategy> RingBuf<N, WaitStrategy> {
     pub fn boxed_unsafe_cell_new() -> Box<std::cell::UnsafeCell<Self>> {
         unsafe {
             let layout = std::alloc::Layout::new::<std::cell::UnsafeCell<Self>>();
@@ -46,9 +83,15 @@ impl<const N: usize> RingBuf<N> {
             reader_head: 0.into(),
             writer_head: 0,
             writer_tail: 0,
+            wait_strategy: std::marker::PhantomData,
         }
     }
+}
 
+impl<const N: usize, WaitStrategy> RingBuf<N, WaitStrategy>
+where
+    RingBuf<N, WaitStrategy>: WithWaitStrategy,
+{
     // eventually impl 0 copy direct uses of the underlying buffer
     pub fn read_all(&self, buf: &mut [u8]) -> usize {
         // extract head from inside the cell (required for interior mutability)
@@ -84,11 +127,11 @@ impl<const N: usize> RingBuf<N> {
         n
     }
 
-    pub fn write<W: WaitStrategy>(&mut self, buf: &[u8]) {
+    pub fn write(&mut self, buf: &[u8]) {
         if buf.len() == 0 {
             return;
         }
-        W::wait_to_write(self, buf);
+        self.wait_to_write(buf);
 
         let wrapped_tail = self.writer_tail % N;
 
@@ -105,43 +148,6 @@ impl<const N: usize> RingBuf<N> {
 
     pub fn commit_write(&mut self) {
         self.tail.store(self.writer_tail, atomic::Ordering::Release);
-    }
-}
-
-pub struct Panic;
-
-impl WaitStrategy for Panic {
-    fn wait_to_write<const N: usize>(rb: &mut RingBuf<N>, buf: &[u8]) {
-        let head = rb.head.load(atomic::Ordering::Acquire);
-        let n = rb.writer_tail - head;
-        let remaining = N - n;
-
-        if buf.len() > remaining {
-            panic!(
-                "too much to write {} - {} = {}. remaining = {}. buf_len = {}",
-                rb.writer_tail,
-                head,
-                n,
-                remaining,
-                buf.len()
-            );
-        }
-    }
-}
-
-pub struct Spin;
-
-impl WaitStrategy for Spin {
-    fn wait_to_write<const N: usize>(rb: &mut RingBuf<N>, buf: &[u8]) {
-        loop {
-            let n = rb.writer_tail - rb.writer_head;
-            let remaining = N - n;
-
-            if buf.len() <= remaining {
-                break;
-            }
-            rb.writer_head = rb.head.load(atomic::Ordering::Acquire);
-        }
     }
 }
 

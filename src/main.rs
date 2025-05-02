@@ -1,3 +1,4 @@
+use nanolog_rs_common::nanolog_logger::LogReader;
 use nanolog_rs_proc_macro::{nanolog, setup_nanolog};
 // TODO: temp for docs
 pub use std::alloc;
@@ -10,7 +11,13 @@ pub use std::time;
 use std::time::Duration;
 
 pub static LOGGER_SENDER: sync::Mutex<
-    cell::OnceCell<sync::mpsc::Sender<::nanolog_rs_common::nanolog_logger::LogReader>>,
+    cell::OnceCell<
+        sync::mpsc::Sender<
+            ::nanolog_rs_common::nanolog_logger::RingBufferLogReader<
+                ::nanolog_rs_common::nanolog_logger::Spin,
+            >,
+        >,
+    >,
 > = sync::Mutex::new(cell::OnceCell::new());
 
 static ALL_THREADS_SETUP: AtomicBool = AtomicBool::new(false);
@@ -42,35 +49,35 @@ fn main() {
             }
         })
         .unwrap();
-    // let t2 = std::thread::Builder::new()
-    //     .name("t2".to_string())
-    //     .spawn(|| {
-    //         println!("Creating thread 2");
-    //         ::affinity::set_thread_affinity([14]).unwrap();
-    //         let mut logger = setup_logger();
+    let t2 = std::thread::Builder::new()
+        .name("t2".to_string())
+        .spawn(|| {
+            println!("Creating thread 2");
+            ::affinity::set_thread_affinity([14]).unwrap();
+            let mut logger = setup_logger();
 
-    //         let a = 1.1;
-    //         let b = 1;
+            let a = 1.1;
+            let b = 1;
 
-    //         // TODO:
-    //         // Further improvements:
-    //         //   - coalesce writes to stdout / disk
-    //         //   - api ergonomics (maybe wrapper around thread_spawn that sets up the logger)
-    //         //   - tokio::main equivalent
+            // TODO:
+            // Further improvements:
+            //   - coalesce writes to stdout / disk
+            //   - api ergonomics (maybe wrapper around thread_spawn that sets up the logger)
+            //   - tokio::main equivalent
 
-    //         for x in 0.. {
-    //             // nanolog!(&mut logger, "[T2] Hello, world!");
-    //             nanolog!(&mut logger, "[T2] Hello, world! %f %d", a, x);
-    //             // std::thread::sleep(std::time::Duration::from_nanos(1))
-    //         }
-    //     })
-    //     .unwrap();
+            for x in 0.. {
+                // nanolog!(&mut logger, "[T2] Hello, world!");
+                nanolog!(&mut logger, "[T2] Hello, world! %f %d", a, x);
+                // std::thread::sleep(std::time::Duration::from_nanos(1))
+            }
+        })
+        .unwrap();
     ::affinity::set_thread_affinity([15]).unwrap();
 
     let mut readers = vec![];
     let mut log_reader_buf = [0; ::nanolog_rs_common::nanolog_logger::RINGBUF_SIZE];
 
-    const NUM_THREADS: usize = 1;
+    const NUM_THREADS: usize = 2;
     // 2 threads
     for _ in 0..NUM_THREADS {
         readers.push(logger_receiver.recv().unwrap());
@@ -90,9 +97,7 @@ fn main() {
                 nanolog_internal::decode_buf(&start_instant, &log_reader_buf[n - 32..n]);
             }
         }
-        if t1.is_finished()
-        // || t2.is_finished()
-        {
+        if t1.is_finished() || t2.is_finished() {
             println!("problem!");
             break;
         }
@@ -102,7 +107,8 @@ fn main() {
 }
 
 fn setup_logger(
-) -> ::nanolog_rs_common::nanolog_logger::Logger<::nanolog_rs_common::nanolog_logger::Spin> {
+) -> ::nanolog_rs_common::nanolog_logger::RingBufferLogger<::nanolog_rs_common::nanolog_logger::Spin>
+{
     let (logger, log_reader) = ::nanolog_rs_common::nanolog_logger::create_log_pair();
     {
         let sender = crate::LOGGER_SENDER.lock().unwrap();

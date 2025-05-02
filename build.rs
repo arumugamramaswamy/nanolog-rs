@@ -32,7 +32,7 @@ fn main() {
 
     let tokens = quote! {
         pub trait NanologLoggable<const F: u64, const L: u32>{
-            fn log<W: ::nanolog_rs_common::nanolog_logger::WaitStrategy>(self, logger: &mut ::nanolog_rs_common::nanolog_logger::Logger<W>);
+            fn log(self, logger: &mut impl ::nanolog_rs_common::nanolog_logger::Logger);
         }
     };
     writeln!(file, "{}", tokens).unwrap();
@@ -80,7 +80,7 @@ fn main() {
         let i = quote::format_ident!("Log{}", invocation.nanolog.get_log_type_suffix());
         let tokens = quote! {
             impl NanologLoggable<#filehash,#linenum> for #i{
-                fn log<W: ::nanolog_rs_common::nanolog_logger::WaitStrategy>(self, logger: &mut ::nanolog_rs_common::nanolog_logger::Logger<W>){
+                fn log(self, logger: &mut impl ::nanolog_rs_common::nanolog_logger::Logger){
                     const LOG_ID: usize = #log_id;
 
                     let timestamp = ::nanolog_rs_common::get_rdtsc_time();
