@@ -46,7 +46,7 @@ impl<const N: usize> WithWaitStrategy for RingBuf<N, Spin> {
     }
 }
 
-pub struct RingBuf<const N: usize, WaitStrategy> {
+pub struct RingBuf<const N: usize, WaitStrategy = Panic> {
     buf: [u8; N],
     head: atomic::AtomicUsize, // where the reader is reading from
     tail: atomic::AtomicUsize, // where the writer is writing to
@@ -159,7 +159,7 @@ mod tests {
     fn test_basic_write_read() {
         let mut r = RingBuf::<16>::new();
         let a = [1, 2, 3];
-        r.write::<Panic>(&a);
+        r.write(&a);
         r.commit_write();
         let mut v = vec![0; 16];
         let n = r.read_all(&mut v);
@@ -167,7 +167,7 @@ mod tests {
         assert_eq!(&v[..n], &a);
 
         let a = [1; 16];
-        r.write::<Panic>(&a);
+        r.write(&a);
         r.commit_write();
         let mut v = vec![0; 16];
         let n = r.read_all(&mut v);
@@ -199,9 +199,9 @@ mod tests {
     #[test]
     fn test_multiple_writes_single_read() {
         let mut r = RingBuf::<16>::new();
-        r.write::<Panic>(&[1, 2, 3]);
-        r.write::<Panic>(&[4, 5]);
-        r.write::<Panic>(&[6, 7, 8, 9]);
+        r.write(&[1, 2, 3]);
+        r.write(&[4, 5]);
+        r.write(&[6, 7, 8, 9]);
         r.commit_write();
 
         let mut v = vec![0; 16];
@@ -215,7 +215,7 @@ mod tests {
         let mut r = RingBuf::<16>::new();
 
         // Write some data
-        r.write::<Panic>(&[1, 2, 3]);
+        r.write(&[1, 2, 3]);
         r.commit_write();
 
         // Read it out
@@ -225,7 +225,7 @@ mod tests {
         assert_eq!(&v[..n], &[1, 2, 3]);
 
         // Write more data
-        r.write::<Panic>(&[4, 5, 6, 7]);
+        r.write(&[4, 5, 6, 7]);
         r.commit_write();
 
         // Read it out
@@ -245,7 +245,7 @@ mod tests {
         let mut r = RingBuf::<8>::new();
 
         // Fill most of the buffer
-        r.write::<Panic>(&[1, 2, 3, 4, 5]);
+        r.write(&[1, 2, 3, 4, 5]);
         r.commit_write();
 
         // Read it out
@@ -254,7 +254,7 @@ mod tests {
         assert_eq!(n, 5);
 
         // Now write data that will wrap around
-        r.write::<Panic>(&[10, 11, 12, 13, 14, 15]);
+        r.write(&[10, 11, 12, 13, 14, 15]);
         r.commit_write();
 
         // Read it out
@@ -292,7 +292,7 @@ mod tests {
         let mut r = RingBuf::<4>::new();
 
         // Fill the buffer completely
-        r.write::<Panic>(&[1, 2, 3, 4]);
+        r.write(&[1, 2, 3, 4]);
         r.commit_write();
 
         // Try to read it all
@@ -302,7 +302,7 @@ mod tests {
         assert_eq!(&v[..n], &[1, 2, 3, 4]);
 
         // Fill it again
-        r.write::<Panic>(&[5, 6, 7, 8]);
+        r.write(&[5, 6, 7, 8]);
         r.commit_write();
 
         // Read it all again
@@ -318,10 +318,10 @@ mod tests {
         let mut r = RingBuf::<4>::new();
 
         // Write 3 bytes
-        r.write::<Panic>(&[1, 2, 3]);
+        r.write(&[1, 2, 3]);
 
         // Try to write 2 more bytes, which exceeds capacity
-        r.write::<Panic>(&[4, 5]);
+        r.write(&[4, 5]);
     }
 
     #[test]
@@ -329,7 +329,7 @@ mod tests {
         // Test with a larger buffer size
         let mut r = RingBuf::<32>::new();
         let data = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-        r.write::<Panic>(&data);
+        r.write(&data);
         r.commit_write();
 
         let mut v = vec![0; 10];
@@ -340,7 +340,7 @@ mod tests {
         // Test with a smaller buffer size
         let mut r = RingBuf::<4>::new();
         let data = [0, 1, 2, 3];
-        r.write::<Panic>(&data);
+        r.write(&data);
         r.commit_write();
 
         let mut v = vec![0; 4];

@@ -24,15 +24,12 @@ pub fn nanolog(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     tokens.into()
 }
 
-// TODO: potentially make this an attribute macro of main
-// TODO: this doesn't have to be a proc macro -> can probably get away with it being a regular
-// macro
-#[proc_macro]
-pub fn setup_nanolog(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let tokens = quote! {
-        mod nanolog_internal {
-            include!(concat!(env!("OUT_DIR"), "/source_files.rs"));
-        }
-    };
-    tokens.into()
-}
+// // TODO: potentially make this an attribute macro of main
+// // TODO: this doesn't have to be a proc macro -> can probably get away with it being a regular
+// // macro
+// #[proc_macro]
+// pub fn setup_nanolog(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+//     let tokens = quote! {
+//     };
+//     tokens.into()
+// }

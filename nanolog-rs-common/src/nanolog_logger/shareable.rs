@@ -23,10 +23,7 @@ impl<T> Clone for ShareableWriter<T> {
 }
 
 impl<T> ShareableWriter<T> {
-    pub fn write<F>(&self, f: F)
-    where
-        F: FnOnce(&mut T),
-    {
+    pub fn write(&self, f: impl FnOnce(&mut T)) {
         let a = unsafe { &mut *self.shareable.0.get() };
         f(a)
     }
@@ -39,10 +36,7 @@ pub struct ShareableReader<T: 'static> {
 unsafe impl<T> Send for ShareableReader<T> {}
 
 impl<T> ShareableReader<T> {
-    pub fn read<F>(&self, f: F)
-    where
-        F: FnOnce(&T),
-    {
+    pub fn read(&self, f: impl FnOnce(&T)) {
         let a = unsafe { &*self.shareable.0.get() };
         f(a)
     }
