@@ -31,7 +31,36 @@ fn main() {
     }
 
     let tokens = quote! {
-        pub trait NanologLoggable<const F: u64, const L: u32>{
+        use std::io::Write;
+        use nanolog_rs_common::compression::NibbleNibble;
+
+        pub trait Compressable{
+            fn compress(&self, writer: &mut impl Write);
+        }
+
+        impl Compressable for (u64, u64){
+            fn compress(&self, writer: &mut impl Write){
+                const MAX_SIZE: usize = 8 + 8 + 1;
+
+                let mut bytes = [0_u8; MAX_SIZE];
+
+                let nb = NibbleNibble::from(*self);
+                bytes[0] = nb.0;
+
+                let (lower_size, upper_size) = nb.get_num_bytes();
+                let lower_size = lower_size.map(|v|v.get()).unwrap_or(8);
+                let upper_size = upper_size.map(|v|v.get()).unwrap_or(8);
+                // bytes[1..1 + lower_size].copy_from_slice(&self.0.to_le_bytes()[..lower_size]);
+                // bytes[1 + lower_size..1 + lower_size + upper_size].copy_from_slice(&self.1.to_le_bytes()[..upper_size]);
+
+                writer.write(&[nb.0]).unwrap();
+                writer.write(&self.0.to_le_bytes()[..lower_size]).unwrap();
+                writer.write(&self.1.to_le_bytes()[..upper_size]).unwrap();
+                // writer.write(&bytes[..upper_size as usize + lower_size as usize + 1]).unwrap();
+            }
+        }
+
+        pub trait NanologLoggable<const F: u64, const L: u32>: Compressable{
             fn log(self, logger: &mut impl ::nanolog_rs_common::nanolog_logger::Logger);
         }
     };
@@ -66,6 +95,12 @@ fn main() {
                     #i{#names}
                 }
             }
+
+            impl Compressable for #i{
+                fn compress(&self, writer: &mut impl Write){
+                    todo!()
+                }
+            }
         };
         writeln!(file, "{}", tokens).unwrap();
     }
@@ -77,18 +112,21 @@ fn main() {
         let linenum = invocation.line_num as u32;
         let fmt_literal = invocation.nanolog.fmt_literal.as_str();
 
+        let log_id_u64 = log_id as u64;
+
         let i = quote::format_ident!("Log{}", invocation.nanolog.get_log_type_suffix());
         let tokens = quote! {
             impl NanologLoggable<#filehash,#linenum> for #i{
                 fn log(self, logger: &mut impl ::nanolog_rs_common::nanolog_logger::Logger){
-                    const LOG_ID: usize = #log_id;
+                    const LOG_ID: u64 = #log_id_u64;
 
-                    // let timestamp = ::nanolog_rs_common::get_rdtsc_time();
-                    let timestamp = ::nanolog_rs_common::get_monotonic_time_micros();
+                    let timestamp = ::nanolog_rs_common::get_rdtsc_time();
+                    // let timestamp = ::nanolog_rs_common::get_monotonic_time_micros();
                     // let timestamp = ::nanolog_rs_common::system_time_to_micros(::std::time::SystemTime::now());
-                    logger.write(&timestamp.to_ne_bytes());
 
                     logger.write(&LOG_ID.to_ne_bytes());
+
+                    logger.write(&timestamp.to_ne_bytes());
 
                     if (std::mem::size_of::<Self>() > 0){
                         let struct_bytes = unsafe{
@@ -118,35 +156,39 @@ fn main() {
 
     let mut log_id_cases = TokenStream::new();
 
-    // TODO: impl the actual logic later
     for (log_id, invocation) in v.iter().enumerate() {
+        let log_id_u64 = log_id as u64;
+
         let i = quote::format_ident!("Log{}", invocation.nanolog.get_log_type_suffix());
         log_id_cases.extend(quote! {
-            #log_id => {
+            #log_id_u64 => {
                 const LOG_SIZE: usize = std::mem::size_of::<crate::nanolog_internal::#i>();
 
-                let log_type = unsafe{&*(buf[consumed..consumed + LOG_SIZE].as_ptr() as *const crate::nanolog_internal::#i)};
-                println!("[{}] Fmt literal: {}, log_type: {:?}", timestamp, LOG_LITERALS[log_id], log_type);
+                (log_id, timestamp).compress(out);
+
+                out.write(&buf[consumed..consumed + LOG_SIZE]).unwrap();
+                // TODO: impl compression for general types
+                // let log_type = unsafe{&*(buf[consumed..consumed + LOG_SIZE].as_ptr() as *const crate::nanolog_internal::#i)};
+                // log_type.compress(out);
+                // println!("[{}] Fmt literal: {}, log_type: {:?}", timestamp, LOG_LITERALS[#log_id], log_type);
                 consumed += LOG_SIZE;
             }
         });
     }
 
     let decode_buf = quote! {
-        pub fn decode_buf(start_instant: &::std::time::Instant, buf: &[u8]) {
+        pub fn decode_buf(out: &mut impl Write, start_instant: &::std::time::Instant, buf: &[u8]) {
             let mut consumed = 0;
             while !buf[consumed..].is_empty() {
                 let mut bytes = [0u8; 8];
 
                 bytes.copy_from_slice(&buf[consumed..consumed + 8]);
                 consumed += 8;
-                let timestamp = usize::from_le_bytes(bytes);
-
+                let log_id = u64::from_le_bytes(bytes);
 
                 bytes.copy_from_slice(&buf[consumed..consumed + 8]);
                 consumed += 8;
-                let log_id = usize::from_le_bytes(bytes);
-
+                let timestamp = u64::from_le_bytes(bytes);
 
                 match log_id {
                     #log_id_cases

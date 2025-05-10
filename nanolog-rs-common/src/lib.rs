@@ -1,3 +1,4 @@
+pub mod compression;
 pub mod nanolog_logger;
 
 use core::arch::x86_64::_rdtsc;
