@@ -1,12 +1,11 @@
 use nanolog_rs_common::{const_fnv1a_hash, Nanolog};
 use proc_macro2::TokenStream;
 use quote::quote;
-use quote::TokenStreamExt;
 use std::collections::HashSet;
 use std::env;
 use std::fs;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use syn;
 use syn::spanned::Spanned;
 use syn::visit::Visit;
@@ -178,6 +177,9 @@ fn main() {
 
     let decode_buf = quote! {
         pub fn decode_buf(out: &mut impl Write, start_instant: &::std::time::Instant, buf: &[u8]) {
+            // TODO: this is not the correct number of bytes - this is the number of bytes before
+            // compression
+            out.write(&buf.len().to_le_bytes());
             let mut consumed = 0;
             while !buf[consumed..].is_empty() {
                 let mut bytes = [0u8; 8];

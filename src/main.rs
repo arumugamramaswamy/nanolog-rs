@@ -30,7 +30,7 @@ macro_rules! setup_nanolog {
         }
     };
 }
-const RINGBUF_SIZE: usize = 256 * 1024;
+const RINGBUF_SIZE: usize = 1024 * 1024;
 
 setup_nanolog!(
     { crate::RINGBUF_SIZE },
